@@ -64,4 +64,4 @@ jobs:
           git diff-index --quiet HEAD || git commit -m "Add CI-generated output images"
           git push "https://${PAT_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:main
         env:
-          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}}}
