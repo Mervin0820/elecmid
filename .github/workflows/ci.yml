@@ -3,6 +3,9 @@ name: Python OpenCV CI
 on:
   push:
     branches: [ "main" ]
+    # Ignore commits made by GitHub Actions bot to prevent infinite loop
+    paths-ignore:
+      - "output/**"
   pull_request:
     branches: [ "main" ]
 
@@ -14,6 +17,8 @@ jobs:
       # Step 1: Checkout repo
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Needed for pushing back
 
       # Step 2: Set up Python
       - name: Set up Python 3.10
@@ -42,7 +47,19 @@ jobs:
 
       # Step 6: Upload output folder as artifact
       - name: Upload output images
-        uses: actions/upload-artifact@v4   # Updated to v4
+        uses: actions/upload-artifact@v4
         with:
           name: output-images
           path: output/
+
+      # Step 7: Commit and push output images back to repo
+      - name: Push output images to repo
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add output/
+          git diff-index --quiet HEAD || git commit -m "Add CI-generated output images"
+          git push origin main
+        env:
+          # GitHub automatically provides a token for Actions
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
