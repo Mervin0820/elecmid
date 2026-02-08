@@ -9,6 +9,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from brighten import apply_clahe, save_image, load_images
 
+
 # -------------------------
 # Test class for unit tests
 # -------------------------
