@@ -2,7 +2,7 @@ name: Python OpenCV CI
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main"]  # Workflow triggers on main
   pull_request:
     branches: ["main"]
 
@@ -14,6 +14,8 @@ jobs:
       # Step 1: Checkout repo
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Needed for pushing changes to another branch
 
       # Step 2: Set up Python
       - name: Set up Python 3.10
@@ -41,12 +43,33 @@ jobs:
           TIMESTAMP=$(date +'%Y-%m-%d_%H-%M-%S')
           mkdir -p output/$TIMESTAMP
           
-          # Run tests (ensure output saved in timestamped folder)
+          # Run tests; make sure test_beautify.py saves images in output/$TIMESTAMP/
           pytest -v tests/ --capture=no
 
-      # Step 6: Upload output folder as artifact
+      # Step 6: Upload output folder as artifact (optional, always downloadable)
       - name: Upload output images
         uses: actions/upload-artifact@v4
         with:
           name: output-images
           path: output/
+
+      # Step 7: Push output images to 'maquee' branch
+      - name: Push output images to 'maquee'
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Checkout maquee branch; create if it doesn't exist
+          git fetch origin maquee || true
+          git checkout maquee || git checkout -b maquee
+          
+          # Copy all output folders into repo
+          git add output/
+          
+          # Commit only if there are changes
+          git diff --cached --quiet || git commit -m "Add CI-generated output images"
+          
+          # Push to maquee branch using your PAT
+          git push "https://${{ secrets.PAT_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" maquee
+        env:
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
