@@ -7,51 +7,96 @@ on:
     branches: [ "main" ]
 
 jobs:
-  test-and-process-images:
+  test:
     runs-on: ubuntu-latest
-
-    permissions:
-      contents: write
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
-      - name: Install system dependencies for OpenCV
+      - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            libgl1 \
-            libglib2.0-0 \
-            libsm6 \
-            libxext6 \
-            libxrender-dev
+          sudo apt-get install -y libgl1 libglib2.0-0 libsm6 libxext6 libxrender-dev
 
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          pip install pytest opencv-python-headless
+          pip install pytest opencv-python numpy pillow matplotlib
 
-      - name: Create output directory
-        run: mkdir -p output
+      - name: Create necessary directories
+        run: |
+          mkdir -p output
+          mkdir -p test_output
+          # Create input directory if it doesn't exist (for first-time setup)
+          mkdir -p input
+
+      - name: Download sample test images (if input is empty)
+        if: hashFiles('input/*') == ''
+        run: |
+          echo "Input folder is empty, downloading sample images..."
+          mkdir -p input
+          # Download sample test images
+          curl -L -o input/sample1.jpg https://placehold.co/600x400/FF0000/FFFFFF.jpg
+          curl -L -o input/sample2.png https://placehold.co/400x300/00FF00/FFFFFF.png
+          curl -L -o input/sample3.jpg https://placehold.co/800x600/0000FF/FFFFFF.jpg
+
+      - name: List input files
+        run: |
+          echo "Input folder contents:"
+          ls -la input/ || echo "Input folder doesn't exist"
+          echo "Number of images in input folder:"
+          find input/ -type f \( -name "*.jpg" -o -name "*.png" -o -name "*.jpeg" \) 2>/dev/null | wc -l || echo 0
 
       - name: Run tests
-        run: pytest -v --tb=short
-
-      - name: Commit processed output images
-        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          # Set environment variables for test configuration
+          export INPUT_DIR="input"
+          export OUTPUT_DIR="test_output"
+          export CI_MODE="true"
           
-          git add output/
-          git diff-index --quiet HEAD || git commit -m "CI: Update processed images [skip ci]"
-          git push
+          # Run tests with increased verbosity
+          python -m pytest -v --tb=short --maxfail=5
+
+      - name: Upload test output images
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: processed-images
+          path: test_output/
+          retention-days: 7
+
+      - name: Upload input images for reference
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: input-images
+          path: input/
+          retention-days: 7
+
+      - name: Compare input vs output counts
+        if: always()
+        run: |
+          echo "=== File Count Summary ==="
+          input_count=$(find input/ -type f \( -name "*.jpg" -o -name "*.png" -o -name "*.jpeg" \) 2>/dev/null | wc -l)
+          output_count=$(find test_output/ -type f \( -name "*.jpg" -o -name "*.png" -o -name "*.jpeg" \) 2>/dev/null | wc -l)
+          echo "Input images: $input_count"
+          echo "Output images: $output_count"
+          
+          if [ $input_count -gt 0 ] && [ $output_count -eq 0 ]; then
+            echo "WARNING: Input images found but no outputs generated!"
+          fi
+
+      - name: Clean up
+        if: always()
+        run: |
+          rm -rf test_output
+          rm -rf __pycache__
+          rm -rf .pytest_cache
+          rm -rf *.pyc
