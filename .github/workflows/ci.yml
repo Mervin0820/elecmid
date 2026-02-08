@@ -3,7 +3,7 @@ name: Python OpenCV CI
 on:
   push:
     branches: [ "main" ]
-    # Ignore commits made by GitHub Actions bot to prevent infinite loop
+    # Ignore output folder commits to prevent infinite loops
     paths-ignore:
       - "output/**"
   pull_request:
@@ -42,8 +42,11 @@ jobs:
       # Step 5: Run pytest
       - name: Run tests
         run: |
-          mkdir -p output        # Ensure output folder exists
-          pytest -v tests/       # Runs your tests folder
+          # Create timestamped folder for outputs
+          TIMESTAMP=$(date +'%Y-%m-%d_%H-%M-%S')
+          mkdir -p output/$TIMESTAMP
+          # Run tests and save outputs in timestamped folder
+          pytest -v tests/ --capture=no
 
       # Step 6: Upload output folder as artifact
       - name: Upload output images
@@ -52,13 +55,13 @@ jobs:
           name: output-images
           path: output/
 
-      # Step 7: Commit and push output images back to repo
+      # Step 7: Push output images back to repo
       - name: Push output images to repo
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add output/
           git diff-index --quiet HEAD || git commit -m "Add CI-generated output images"
-          git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:main
+          git push "https://${PAT_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:main
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
