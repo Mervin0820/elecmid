@@ -11,65 +11,61 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout repository
+      # 1. Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Needed for pushing to another branch
+          fetch-depth: 0  # needed to push branches
 
-      # Step 2: Set up Python
-      - name: Set up Python 3.10
+      # 2. Setup Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
-      # Step 3: Install system dependencies
+      # 3. Install dependencies
       - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libgl1 libglib2.0-0
 
-      # Step 4: Install Python dependencies
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest opencv-python-headless numpy
 
-      # Step 5: Run pytest
-      - name: Run tests and save outputs
+      # 4. Run tests
+      - name: Run pytest and generate outputs
         run: |
-          # Create timestamped output folder
           TIMESTAMP=$(date +'%Y-%m-%d_%H-%M-%S')
           mkdir -p output/$TIMESTAMP
-          
-          # Run tests (make sure test_beautify.py saves images in output/$TIMESTAMP/)
           pytest -v tests/ --capture=no
 
-      # Step 6: Upload output folder as artifact (optional)
-      - name: Upload output images as artifact
+      # 5. Upload outputs as artifact (optional)
+      - name: Upload output artifacts
         uses: actions/upload-artifact@v4
         with:
           name: output-images
           path: output/
 
-      # Step 7: Push output images to separate branch 'ci-output'
-      - name: Push output images to 'ci-output' branch
+      # 6. Push output images to 'ci-output' branch
+      - name: Push outputs to 'ci-output' branch
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Check if branch exists; if not, create it
-          git fetch origin ci-output || git checkout -b ci-output
+          # Create or switch to ci-output branch
+          git fetch origin ci-output:ci-output || true
           git checkout -B ci-output
 
-          # Add all output folders
+          # Add all outputs
           git add output/
 
           # Commit only if there are changes
           git diff --cached --quiet || git commit -m "Add CI-generated output images"
 
-          # Push using PAT
+          # Push using repo-scoped PAT
           git push "https://${{ secrets.PAT_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" ci-output
         env:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
