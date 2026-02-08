@@ -38,23 +38,20 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          pip install pytest
+          pip install pytest opencv-python-headless
 
-      - name: Create output directory if it doesn't exist
+      - name: Create output directory
         run: mkdir -p output
 
       - name: Run tests
         run: pytest -v --tb=short
 
-      - name: Commit processed output images (only on push to main)
+      - name: Commit processed output images
         if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          if git diff --quiet HEAD -- output/; then
-            echo "No changes to output images"
-          else
-            git add output/
-            git commit -m "CI: Update processed images [skip ci]"
-            git push
+          git add output/
+          git diff-index --quiet HEAD || git commit -m "CI: Update processed images [skip ci]"
+          git push
