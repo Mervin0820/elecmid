@@ -2,7 +2,7 @@ name: Python OpenCV CI
 
 on:
   push:
-    branches: ["main"]  # Workflow triggers on main
+    branches: ["main"]  # Trigger when pushing to main
   pull_request:
     branches: ["main"]
 
@@ -11,11 +11,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout repo
+      # Step 1: Checkout the repo
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Needed for pushing changes to another branch
+          fetch-depth: 0  # Needed for pushing changes
 
       # Step 2: Set up Python
       - name: Set up Python 3.10
@@ -37,16 +37,16 @@ jobs:
           pip install pytest opencv-python-headless numpy
 
       # Step 5: Run pytest
-      - name: Run tests
+      - name: Run tests and save output
         run: |
-          # Create timestamped output folder
+          # Create a timestamped folder for outputs
           TIMESTAMP=$(date +'%Y-%m-%d_%H-%M-%S')
           mkdir -p output/$TIMESTAMP
-          
-          # Run tests; make sure test_beautify.py saves images in output/$TIMESTAMP/
+
+          # Run tests; make sure your test_beautify.py saves images in output/$TIMESTAMP/
           pytest -v tests/ --capture=no
 
-      # Step 6: Upload output folder as artifact (optional, always downloadable)
+      # Step 6: Upload output folder as artifact (optional)
       - name: Upload output images
         uses: actions/upload-artifact@v4
         with:
@@ -54,23 +54,22 @@ jobs:
           path: output/
 
       # Step 7: Push output images to 'maquee' branch
-      - name: Push output images to 'maquee' branch
+      - name: Push output images to 'maquee'
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # Ensure branch exists locally
+
+          # Checkout maquee branch; create if it doesn't exist
           git fetch origin maquee:maquee || git checkout -b maquee
-          
           git checkout maquee
-          
-          # Add outputs
+
+          # Add all outputs
           git add output/
-          
+
           # Commit only if changes exist
           git diff --cached --quiet || git commit -m "Add CI-generated output images"
-          
-          # Push using PAT directly in the remote URL
+
+          # Push using PAT
           git push "https://${{ secrets.PAT_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" maquee
         env:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
