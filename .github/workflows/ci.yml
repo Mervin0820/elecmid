@@ -1,118 +1,41 @@
-name: Python OpenCV CI
+name: CI Pipeline - Image Processing
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - main
   pull_request:
-    branches: [ "main" ]
 
 jobs:
-  test:
-    runs-on: ubuntu-latest  # This is currently Ubuntu 24.04
+  test-and-save-output:
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      # Step 1: Checkout repo
+      - name: Checkout Repository
+        uses: actions/checkout@v3
 
-      - name: Set up Python
+      # Step 2: Set up Python
+      - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: '3.11'
 
-      - name: Install system dependencies (Ubuntu 24.04 compatible)
-        run: |
-          sudo apt-get update
-          # Minimal dependencies for OpenCV headless
-          sudo apt-get install -y \
-            libglib2.0-0 \
-            libsm6 \
-            libxext6 \
-            libxrender-dev \
-            libgl1  # This is the correct package for Ubuntu 24.04
-
-      - name: Install Python dependencies
+      # Step 3: Install dependencies
+      - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          # Always install opencv-python-headless for CI environments
-          pip install pytest opencv-python-headless numpy
-          # Install other dependencies from requirements.txt if it exists
-          if [ -f requirements.txt ]; then
-            pip install -r requirements.txt
-          fi
+          pip install opencv-python-headless numpy pytest
 
-      - name: Create directories
+      # Step 4: Run tests with pytest and save output folder
+      - name: Run Pytest
         run: |
-          mkdir -p input output test_output
-          echo "Directories created"
+          mkdir -p output
+          pytest tests/test_beautify.py -v --maxfail=1 --disable-warnings
 
-      - name: Create test images if input is empty
-        run: |
-          # Check if input folder has images
-          if [ -z "$(ls -A input/ 2>/dev/null)" ]; then
-            echo "Creating test images..."
-            python -c "
-import numpy as np
-import cv2
-import os
-
-# Create a simple test image
-img = np.zeros((100, 100, 3), dtype=np.uint8)
-img[25:75, 25:75] = [0, 0, 255]  # Red square in BGR
-
-# Create multiple test images
-test_images = [
-    ('test_red.jpg', img),
-    ('test_green.jpg', np.roll(img, 1, axis=2)),  # Green square
-    ('test_blue.jpg', np.roll(img, 2, axis=2)),   # Blue square
-    ('test_gradient.png', np.tile(np.arange(100, dtype=np.uint8), (100, 1)))  # Gradient
-]
-
-for filename, image in test_images:
-    cv2.imwrite(os.path.join('input', filename), image)
-    print(f'Created: {filename}')
-
-print(f'Created {len(test_images)} test images in input/ folder')
-"
-          else
-            echo "Input folder already has images"
-            ls -la input/
-          fi
-
-      - name: Verify OpenCV installation
-        run: |
-          python -c "
-import cv2
-import numpy as np
-print(f'OpenCV version: {cv2.__version__}')
-print(f'NumPy version: {np.__version__}')
-
-# Test basic functionality
-img = np.zeros((10, 10, 3), dtype=np.uint8)
-gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-print(f'Successfully created image of shape: {gray.shape}')
-print('✓ OpenCV is working correctly!')
-"
-
-      - name: Run pytest
-        run: |
-          # Set environment variables for tests
-          export INPUT_DIR="input"
-          export OUTPUT_DIR="test_output"
-          
-          # Run tests with verbose output
-          python -m pytest -v --tb=short --maxfail=3
-
-      - name: Upload processed images as artifact
-        if: always()
-        uses: actions/upload-artifact@v4
+      # Step 5: Upload output folder as artifact
+      - name: Upload Output Folder
+        uses: actions/upload-artifact@v3
         with:
-          name: processed-images
-          path: test_output/
-          if-no-files-found: warn
-
-      - name: Clean up
-        if: always()
-        run: |
-          rm -rf test_output
-          find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-          find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
+          name: output-images
+          path: output/
