@@ -54,22 +54,23 @@ jobs:
           path: output/
 
       # Step 7: Push output images to 'maquee' branch
-      - name: Push output images to 'maquee'
+      - name: Push output images to 'maquee' branch
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # Checkout maquee branch; create if it doesn't exist
-          git fetch origin maquee || true
-          git checkout maquee || git checkout -b maquee
+          # Ensure branch exists locally
+          git fetch origin maquee:maquee || git checkout -b maquee
           
-          # Copy all output folders into repo
+          git checkout maquee
+          
+          # Add outputs
           git add output/
           
-          # Commit only if there are changes
+          # Commit only if changes exist
           git diff --cached --quiet || git commit -m "Add CI-generated output images"
           
-          # Push to maquee branch using your PAT
+          # Push using PAT directly in the remote URL
           git push "https://${{ secrets.PAT_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" maquee
         env:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
