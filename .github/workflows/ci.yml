@@ -2,7 +2,7 @@ name: Python OpenCV CI
 
 on:
   push:
-    branches: ["main"]  # Trigger when pushing to main
+    branches: ["main"]
   pull_request:
     branches: ["main"]
 
@@ -11,11 +11,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout the repo
+      # Step 1: Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Needed for pushing changes
+          fetch-depth: 0  # Needed for pushing to another branch
 
       # Step 2: Set up Python
       - name: Set up Python 3.10
@@ -37,39 +37,39 @@ jobs:
           pip install pytest opencv-python-headless numpy
 
       # Step 5: Run pytest
-      - name: Run tests and save output
+      - name: Run tests and save outputs
         run: |
-          # Create a timestamped folder for outputs
+          # Create timestamped output folder
           TIMESTAMP=$(date +'%Y-%m-%d_%H-%M-%S')
           mkdir -p output/$TIMESTAMP
-
-          # Run tests; make sure your test_beautify.py saves images in output/$TIMESTAMP/
+          
+          # Run tests (make sure test_beautify.py saves images in output/$TIMESTAMP/)
           pytest -v tests/ --capture=no
 
       # Step 6: Upload output folder as artifact (optional)
-      - name: Upload output images
+      - name: Upload output images as artifact
         uses: actions/upload-artifact@v4
         with:
           name: output-images
           path: output/
 
-      # Step 7: Push output images to 'maquee' branch
-      - name: Push output images to 'maquee'
+      # Step 7: Push output images to separate branch 'ci-output'
+      - name: Push output images to 'ci-output' branch
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Checkout maquee branch; create if it doesn't exist
-          git fetch origin maquee:maquee || git checkout -b maquee
-          git checkout maquee
+          # Check if branch exists; if not, create it
+          git fetch origin ci-output || git checkout -b ci-output
+          git checkout -B ci-output
 
-          # Add all outputs
+          # Add all output folders
           git add output/
 
-          # Commit only if changes exist
+          # Commit only if there are changes
           git diff --cached --quiet || git commit -m "Add CI-generated output images"
 
           # Push using PAT
-          git push "https://${{ secrets.PAT_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" maquee
+          git push "https://${{ secrets.PAT_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" ci-output
         env:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
